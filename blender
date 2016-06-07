@@ -1,0 +1,57 @@
+#! /bin/bash
+
+BLENDER_INSTALL_DIR=/opt/blender
+VERSION=
+LATEST_VERSION=0
+
+while getopts ":V:" o; do
+    case "${o}" in
+        V)
+            VERSION=${OPTARG}
+            shift $((OPTIND-1))
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+function usage() {
+    if [ -x ${VERSIONS_ARRAY[$LATEST_VERSION]}/blender ] ; then
+        ${VERSIONS_ARRAY[$LATEST_VERSION]}/blender --help | sed "s/\\(^Usage: blender \\)\\(\[args ...\].*\\)/\1[-V <version>] \2/" 1>&2;
+    else
+        echo "$0: version not found" 1>&2;
+    fi
+    exit 1;
+}
+
+function version-gt() {
+         test "$(echo "$@" | tr " " "\n" | sort -V | head -n 1)" != "$1";
+}
+
+declare -A VERSIONS_ARRAY
+
+function generate-versions-array() {
+    for d in `find /opt/blender -maxdepth 1 -name "blender*" ! -name blender -print` ; do
+        key=`echo $d | sed -n "s/.*-\\([0-9].[0-9][0-9][a-z]\?\\)-.*/\1/p"`
+        VERSIONS_ARRAY[$key]=$d
+    done
+}
+
+generate-versions-array
+
+function get-latest-versions() {
+    for v in ${!VERSIONS_ARRAY[@]}; do
+        if version-gt $v $LATEST_VERSION ; then
+            LATEST_VERSION=$v
+        fi            
+    done
+}
+
+get-latest-versions
+
+[[ -z ${VERSION} ]] && VERSION=$LATEST_VERSION
+
+[[ -z ${VERSIONS_ARRAY[$VERSION]} ]] && usage
+
+${VERSIONS_ARRAY[$VERSION]}/blender $@
